@@ -1,0 +1,862 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>The Studio — B.L.I.T.Z.</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:ital,wght@0,400;0,700&family=Syne:wght@400;600;700;800&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#04050a;--bg2:#07080f;--bg3:#0b0c15;
+  --border:rgba(255,255,255,0.07);--border2:rgba(255,255,255,0.13);
+  --text:rgba(255,255,255,0.92);--muted:rgba(255,255,255,0.32);--faint:rgba(255,255,255,0.045);
+  --accent:#a78bfa;--green:#4ade80;--red:#fb7185;--gold:#fbbf24;--blue:#60a5fa;
+  --studio:#c084fc;--studio-dark:#7c3aed;
+  --font:'Syne',sans-serif;--mono:'Space Mono',monospace;
+  --panel:340px;--topbar-h:42px;--statusbar-h:24px;
+}
+html,body{width:100%;height:100%;overflow:hidden;background:var(--bg);}
+body{font-family:var(--font);color:var(--text);-webkit-font-smoothing:antialiased;letter-spacing:.02em;}
+body::after{content:'';position:fixed;inset:0;z-index:9999;background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,0,0,.012) 2px,rgba(0,0,0,.012) 4px);pointer-events:none;}
+
+/* TOPBAR */
+.topbar{position:fixed;top:0;left:0;right:0;height:var(--topbar-h);z-index:200;display:flex;align-items:center;background:rgba(4,5,12,0.95);backdrop-filter:blur(24px);border-bottom:1px solid var(--border);}
+.topbar-left{display:flex;align-items:center;gap:10px;padding:0 14px;border-right:1px solid var(--border);}
+.back-btn{display:flex;align-items:center;gap:6px;padding:5px 10px;border-radius:7px;font-family:var(--mono);font-size:10px;color:var(--muted);cursor:pointer;border:1px solid var(--border);background:transparent;transition:all .15s;text-decoration:none;}
+.back-btn:hover{color:var(--text);border-color:var(--border2);background:var(--faint);}
+.studio-badge{display:flex;align-items:center;gap:7px;padding:0 14px;font-size:11px;font-weight:700;letter-spacing:.12em;color:var(--studio);}
+.studio-dot{width:7px;height:7px;border-radius:50%;background:var(--studio);box-shadow:0 0 10px rgba(192,132,252,.7);animation:studio-pulse 2s ease-in-out infinite;}
+@keyframes studio-pulse{0%,100%{opacity:1;box-shadow:0 0 10px rgba(192,132,252,.7)}50%{opacity:.6;box-shadow:0 0 22px rgba(192,132,252,.4)}}
+.topbar-center{flex:1;display:flex;align-items:center;justify-content:center;gap:6px;}
+.scene-chip{padding:4px 12px;border-radius:20px;font-family:var(--mono);font-size:9px;font-weight:700;border:1px solid var(--border);background:var(--faint);color:var(--muted);cursor:pointer;transition:all .15s;letter-spacing:.06em;}
+.scene-chip:hover,.scene-chip.active{border-color:rgba(192,132,252,.4);color:var(--studio);background:rgba(192,132,252,.08);}
+.topbar-right{display:flex;align-items:center;gap:8px;padding:0 14px;border-left:1px solid var(--border);flex-shrink:0;}
+.tb-btn{padding:5px 10px;border-radius:6px;font-family:var(--mono);font-size:9px;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer;transition:all .15s;}
+.tb-btn:hover{border-color:var(--border2);color:var(--text);background:var(--faint);}
+.api-pill{display:flex;align-items:center;gap:5px;font-family:var(--mono);font-size:9px;color:var(--muted);}
+.api-dot{width:5px;height:5px;border-radius:50%;background:var(--muted);}
+.api-dot.on{background:var(--green);box-shadow:0 0 6px rgba(74,222,128,.6);}
+.api-dot.off{background:var(--red);}
+
+/* LAYOUT */
+.layout{position:fixed;top:var(--topbar-h);bottom:var(--statusbar-h);left:0;right:0;display:flex;}
+
+/* 3D CANVAS */
+.canvas-zone{flex:1;position:relative;overflow:hidden;background:#020308;}
+#three-canvas{width:100%;height:100%;display:block;touch-action:none;}
+.canvas-overlay-tl{position:absolute;top:14px;left:14px;z-index:20;display:flex;flex-direction:column;gap:6px;}
+.canvas-overlay-br{position:absolute;bottom:14px;right:14px;z-index:20;display:flex;flex-direction:column;gap:6px;align-items:flex-end;}
+.hud-pill{display:flex;align-items:center;gap:6px;padding:5px 10px;border-radius:20px;font-family:var(--mono);font-size:9px;background:rgba(4,5,12,.85);backdrop-filter:blur(12px);border:1px solid var(--border);color:var(--muted);}
+.hud-pill .dot{width:5px;height:5px;border-radius:50%;background:var(--studio);box-shadow:0 0 6px rgba(192,132,252,.5);}
+.axis-label{font-family:var(--mono);font-size:9px;color:rgba(255,255,255,.2);letter-spacing:.06em;}
+.cam-controls{position:absolute;bottom:14px;left:50%;transform:translateX(-50%);z-index:20;display:flex;gap:6px;}
+.cam-btn{padding:5px 10px;border-radius:7px;font-family:var(--mono);font-size:9px;background:rgba(4,5,12,.85);backdrop-filter:blur(12px);border:1px solid var(--border);color:var(--muted);cursor:pointer;transition:all .15s;}
+.cam-btn:hover{border-color:rgba(192,132,252,.3);color:var(--studio);}
+
+/* Rendering label */
+.render-tag{
+  position:absolute;top:14px;right:14px;z-index:20;
+  padding:4px 10px;border-radius:6px;font-family:var(--mono);font-size:9px;font-weight:700;
+  background:rgba(192,132,252,.1);border:1px solid rgba(192,132,252,.25);color:var(--studio);
+  opacity:0;transition:opacity .4s;pointer-events:none;
+}
+.render-tag.show{opacity:1;}
+.render-tag.rendering{animation:render-blink .6s ease-in-out infinite;}
+@keyframes render-blink{0%,100%{opacity:1}50%{opacity:.3}}
+
+/* BLITZ PANEL */
+.blitz-panel{width:var(--panel);flex-shrink:0;display:flex;flex-direction:column;border-left:1px solid var(--border);background:rgba(4,5,14,.92);backdrop-filter:blur(24px);overflow:hidden;transition:width .25s cubic-bezier(.4,0,.2,1);}
+.blitz-panel.collapsed{width:0;}
+.blitz-header{padding:12px 14px 10px;border-bottom:1px solid var(--border);flex-shrink:0;display:flex;align-items:center;gap:8px;}
+.blitz-logo{font-size:13px;font-weight:800;letter-spacing:-.02em;flex:1;}
+.blitz-logo span{color:var(--studio);}
+.blitz-mode-badge{padding:3px 8px;border-radius:6px;font-family:var(--mono);font-size:9px;font-weight:700;background:rgba(192,132,252,.1);color:var(--studio);border:1px solid rgba(192,132,252,.22);}
+
+/* Scene library */
+.scene-lib{padding:8px;border-bottom:1px solid var(--border);flex-shrink:0;}
+.scene-lib-title{font-family:var(--mono);font-size:8px;font-weight:700;letter-spacing:.16em;text-transform:uppercase;color:var(--muted);margin-bottom:6px;padding:0 4px;}
+.scene-grid{display:grid;grid-template-columns:1fr 1fr;gap:4px;}
+.scene-card{padding:7px 9px;border-radius:8px;border:1px solid var(--border);background:var(--faint);cursor:pointer;transition:all .15s;}
+.scene-card:hover{border-color:rgba(192,132,252,.3);background:rgba(192,132,252,.06);}
+.scene-card.active{border-color:rgba(192,132,252,.45);background:rgba(192,132,252,.1);}
+.scene-card-icon{font-size:15px;margin-bottom:3px;}
+.scene-card-name{font-family:var(--mono);font-size:9px;color:var(--muted);}
+.scene-card:hover .scene-card-name,.scene-card.active .scene-card-name{color:var(--studio);}
+
+/* Chat feed */
+.blitz-feed{flex:1;overflow-y:auto;padding:10px;display:flex;flex-direction:column;gap:6px;}
+.blitz-feed::-webkit-scrollbar{width:2px;}
+.blitz-feed::-webkit-scrollbar-thumb{background:var(--border2);}
+.b-msg{display:flex;flex-direction:column;gap:2px;max-width:96%;}
+.b-msg.u{align-self:flex-end;align-items:flex-end;}
+.b-msg.b{align-self:flex-start;align-items:flex-start;}
+.b-who{font-family:var(--mono);font-size:7.5px;color:var(--muted);letter-spacing:.08em;}
+.b-bubble{padding:8px 11px;border-radius:10px;font-size:11.5px;line-height:1.55;cursor:text;user-select:text;}
+.b-msg.u .b-bubble{background:rgba(192,132,252,.08);border:1px solid rgba(192,132,252,.18);}
+.b-msg.b .b-bubble{background:rgba(192,132,252,.05);border:1px solid rgba(192,132,252,.12);}
+.b-bubble code{font-family:var(--mono);font-size:10px;background:rgba(255,255,255,.07);padding:1px 4px;border-radius:3px;}
+.b-ts{font-family:var(--mono);font-size:7px;color:var(--muted);}
+.b-typing{align-self:flex-start;padding:9px 12px;background:rgba(192,132,252,.06);border:1px solid rgba(192,132,252,.12);border-radius:10px;display:flex;gap:4px;align-items:center;}
+.tdot{width:4px;height:4px;border-radius:50%;background:rgba(192,132,252,.5);animation:tdot-bounce 1.2s ease-in-out infinite;}
+.tdot:nth-child(2){animation-delay:.2s}.tdot:nth-child(3){animation-delay:.4s}
+@keyframes tdot-bounce{0%,80%,100%{transform:translateY(0)}40%{transform:translateY(-5px)}}
+
+/* Render btn */
+.render-btn{
+  display:flex;align-items:center;justify-content:center;gap:6px;
+  padding:7px;border-radius:8px;margin:0 12px 6px;
+  font-family:var(--mono);font-size:9px;font-weight:700;letter-spacing:.06em;
+  background:rgba(192,132,252,.1);border:1px solid rgba(192,132,252,.3);color:var(--studio);
+  cursor:pointer;transition:all .15s;flex-shrink:0;
+}
+.render-btn:hover{background:rgba(192,132,252,.2);border-color:rgba(192,132,252,.55);}
+
+/* Input area */
+.blitz-input-area{padding:10px 12px;border-top:1px solid var(--border);background:rgba(255,255,255,.01);flex-shrink:0;}
+.b-input-row{display:flex;gap:6px;align-items:center;}
+.b-inp{flex:1;background:rgba(255,255,255,.04);border:1px solid var(--border);border-radius:8px;padding:7px 10px;font-family:var(--mono);font-size:11px;color:var(--text);outline:none;caret-color:rgba(255,255,255,.7);transition:border-color .15s;}
+.b-inp:focus{border-color:rgba(192,132,252,.35);}
+.b-send{width:32px;height:32px;border-radius:7px;flex-shrink:0;cursor:pointer;border:1px solid rgba(192,132,252,.25);background:rgba(192,132,252,.07);color:rgba(192,132,252,.7);font-size:12px;display:flex;align-items:center;justify-content:center;transition:all .15s;}
+.b-send:hover{background:rgba(192,132,252,.16);color:var(--studio);}
+.studio-prompts{display:flex;gap:4px;flex-wrap:wrap;margin-top:6px;}
+.sp-btn{padding:3px 8px;border-radius:5px;font-family:var(--mono);font-size:8px;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer;transition:all .12s;}
+.sp-btn:hover{border-color:rgba(192,132,252,.3);color:var(--studio);background:rgba(192,132,252,.05);}
+
+/* STATUS BAR */
+.statusbar{position:fixed;bottom:0;left:0;right:0;height:var(--statusbar-h);z-index:200;display:flex;align-items:center;background:rgba(192,132,252,.07);border-top:1px solid rgba(192,132,252,.15);font-family:var(--mono);font-size:9.5px;}
+.sb-section{display:flex;align-items:center;gap:8px;padding:0 12px;border-right:1px solid rgba(192,132,252,.1);height:100%;color:rgba(192,132,252,.6);}
+.sb-section:last-child{border-right:none;margin-left:auto;}
+
+/* TOAST */
+.toast{position:fixed;bottom:36px;left:50%;transform:translateX(-50%) translateY(8px);z-index:9000;background:rgba(8,9,22,.97);border:1px solid var(--border2);border-radius:9px;padding:7px 14px;font-family:var(--mono);font-size:11px;color:var(--text);opacity:0;pointer-events:none;transition:all .3s cubic-bezier(.34,1.56,.64,1);}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
+.toast.studio{border-color:rgba(192,132,252,.35);color:var(--studio);}
+
+/* Code inject floating btn */
+.inject-scene-btn{
+  display:none;align-items:center;gap:5px;margin:4px 0 0;
+  padding:4px 10px;border-radius:5px;font-family:var(--mono);font-size:9px;font-weight:700;
+  background:rgba(192,132,252,.1);border:1px solid rgba(192,132,252,.28);color:var(--studio);cursor:pointer;transition:all .15s;
+}
+.inject-scene-btn.show{display:inline-flex;}
+.inject-scene-btn:hover{background:rgba(192,132,252,.22);}
+
+/* Grid helper overlay */
+.grid-hud{position:absolute;bottom:50px;left:14px;z-index:20;display:flex;flex-direction:column;gap:4px;}
+.grid-hud-row{display:flex;align-items:center;gap:7px;font-family:var(--mono);font-size:9px;color:rgba(255,255,255,.25);}
+.grid-hud-label{min-width:50px;}
+.grid-hud-val{color:rgba(255,255,255,.5);}
+</style>
+</head>
+<body>
+
+<!-- TOPBAR -->
+<div class="topbar">
+  <div class="topbar-left">
+    <a href="index.html" class="back-btn">← Hub</a>
+    <div class="studio-badge">
+      <div class="studio-dot"></div>
+      THE STUDIO
+    </div>
+  </div>
+
+  <div class="topbar-center">
+    <button class="scene-chip active" id="chip-scene" onclick="setViewMode('scene')">Scene</button>
+    <button class="scene-chip" id="chip-wireframe" onclick="toggleWireframe()">Wireframe</button>
+    <button class="scene-chip" id="chip-grid" onclick="toggleGrid()">Grid</button>
+    <button class="scene-chip" id="chip-axes" onclick="toggleAxes()">Axes</button>
+    <button class="scene-chip" id="chip-anim" onclick="toggleAnimation()">▶ Animate</button>
+  </div>
+
+  <div class="topbar-right">
+    <button class="tb-btn" onclick="clearScene()">⬡ Clear</button>
+    <button class="tb-btn" onclick="toggleBlitz()">⚡ Blitz</button>
+    <div class="api-pill">
+      <div class="api-dot" id="api-dot"></div>
+      <span id="api-lbl">—</span>
+    </div>
+  </div>
+</div>
+
+<!-- LAYOUT -->
+<div class="layout">
+  <!-- 3D CANVAS ZONE -->
+  <div class="canvas-zone" id="canvas-zone">
+    <canvas id="three-canvas"></canvas>
+
+    <!-- HUD overlays -->
+    <div class="canvas-overlay-tl">
+      <div class="hud-pill"><div class="dot"></div><span id="scene-name">Empty Scene</span></div>
+      <div class="hud-pill" id="poly-count" style="display:none">0 vertices</div>
+    </div>
+
+    <div class="render-tag" id="render-tag">⬡ RENDERING</div>
+
+    <!-- Camera controls -->
+    <div class="cam-controls">
+      <button class="cam-btn" onclick="setCameraPreset('front')">Front</button>
+      <button class="cam-btn" onclick="setCameraPreset('top')">Top</button>
+      <button class="cam-btn" onclick="setCameraPreset('side')">Side</button>
+      <button class="cam-btn" onclick="setCameraPreset('perspective')">Persp.</button>
+      <button class="cam-btn" onclick="resetCamera()">Reset</button>
+    </div>
+
+    <!-- Camera XYZ readout -->
+    <div class="grid-hud" id="cam-hud">
+      <div class="grid-hud-row"><span class="grid-hud-label">CAM X</span><span class="grid-hud-val" id="cam-x">0.00</span></div>
+      <div class="grid-hud-row"><span class="grid-hud-label">CAM Y</span><span class="grid-hud-val" id="cam-y">0.00</span></div>
+      <div class="grid-hud-row"><span class="grid-hud-label">CAM Z</span><span class="grid-hud-val" id="cam-z">0.00</span></div>
+    </div>
+  </div>
+
+  <!-- BLITZ PANEL -->
+  <div class="blitz-panel" id="blitz-panel">
+    <div class="blitz-header">
+      <div class="blitz-logo">B.L.I.T.<span>Z</span>.</div>
+      <div class="blitz-mode-badge">3D STUDIO</div>
+    </div>
+
+    <!-- Scene library -->
+    <div class="scene-lib">
+      <div class="scene-lib-title">Scene Library</div>
+      <div class="scene-grid">
+        <div class="scene-card" onclick="loadPreset('magnetic')"><div class="scene-card-icon">🧲</div><div class="scene-card-name">Magnetic Field</div></div>
+        <div class="scene-card" onclick="loadPreset('solar')"><div class="scene-card-icon">☀️</div><div class="scene-card-name">Solar System</div></div>
+        <div class="scene-card" onclick="loadPreset('crystal')"><div class="scene-card-icon">💎</div><div class="scene-card-name">Crystal Lattice</div></div>
+        <div class="scene-card" onclick="loadPreset('wave')"><div class="scene-card-icon">〰️</div><div class="scene-card-name">Wave Function</div></div>
+        <div class="scene-card" onclick="loadPreset('dna')"><div class="scene-card-icon">🧬</div><div class="scene-card-name">DNA Helix</div></div>
+        <div class="scene-card" onclick="loadPreset('torus')"><div class="scene-card-icon">⬡</div><div class="scene-card-name">Torus Knot</div></div>
+      </div>
+    </div>
+
+    <!-- Chat feed -->
+    <div class="blitz-feed" id="blitz-feed"></div>
+
+    <!-- Render from Blitz -->
+    <button class="render-btn" onclick="renderFromChat()">⬡ Render Last Scene Code</button>
+
+    <!-- Input area -->
+    <div class="blitz-input-area">
+      <div class="b-input-row">
+        <input type="text" class="b-inp" id="b-inp" placeholder='Try: "Generate a rotating magnetic field"' />
+        <button class="b-send" onclick="sendStudio()">↑</button>
+      </div>
+      <div class="studio-prompts">
+        <button class="sp-btn" onclick="quickPrompt('Generate a 3D magnetic field with field lines')">🧲 Magnetic</button>
+        <button class="sp-btn" onclick="quickPrompt('Create a DNA double helix')">🧬 DNA</button>
+        <button class="sp-btn" onclick="quickPrompt('Show a particle wave function')">〰️ Wave</button>
+        <button class="sp-btn" onclick="quickPrompt('Build a solar system with orbiting planets')">☀️ Solar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- STATUS BAR -->
+<div class="statusbar">
+  <div class="sb-section"><span>⬡</span><span id="sb-scene">empty scene</span></div>
+  <div class="sb-section"><span id="sb-objects">0 objects</span></div>
+  <div class="sb-section"><span id="sb-fps">60 fps</span></div>
+  <div class="sb-section" style="margin-left:auto"><span id="sb-api">—</span></div>
+</div>
+
+<!-- TOAST -->
+<div class="toast" id="toast"></div>
+
+<script>
+const API = 'https://your-backend.onrender.com';
+let toastTimer;
+let apiOnline = false;
+
+// ── THREE.JS SETUP ────────────────────────────────────────
+const canvas = document.getElementById('three-canvas');
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
+renderer.setPixelRatio(window.devicePixelRatio);
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.setClearColor(0x020308, 1);
+
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(55, 1, 0.1, 1000);
+camera.position.set(5, 4, 7);
+camera.lookAt(0, 0, 0);
+
+// Lights
+const ambientLight = new THREE.AmbientLight(0x334466, 0.6);
+scene.add(ambientLight);
+const dirLight = new THREE.DirectionalLight(0x8866ff, 1.2);
+dirLight.position.set(5, 8, 5);
+dirLight.castShadow = true;
+scene.add(dirLight);
+const pointLight = new THREE.PointLight(0x6644cc, 0.8, 20);
+pointLight.position.set(-4, 3, -4);
+scene.add(pointLight);
+
+// Grid
+let gridHelper = new THREE.GridHelper(20, 20, 0x223355, 0x111a2a);
+scene.add(gridHelper);
+
+// Axes
+let axesHelper = new THREE.AxesHelper(3);
+axesHelper.visible = false;
+scene.add(axesHelper);
+
+// Scene objects group
+let objectGroup = new THREE.Group();
+scene.add(objectGroup);
+
+// State
+let animating = true;
+let wireframeMode = false;
+let sceneObjects = [];
+let animMixers = [];
+let clock = new THREE.Clock();
+let frameCount = 0, fpsTime = 0, fps = 60;
+let lastSceneCode = '';
+
+// ── ORBIT CONTROLS (manual) ──────────────────────────────
+let orbitState = {
+  isDragging: false,
+  lastX: 0, lastY: 0,
+  theta: 0.6, phi: 0.6,
+  radius: 10,
+  target: new THREE.Vector3(0, 0, 0)
+};
+
+function updateOrbit() {
+  camera.position.x = orbitState.target.x + orbitState.radius * Math.sin(orbitState.phi) * Math.sin(orbitState.theta);
+  camera.position.y = orbitState.target.y + orbitState.radius * Math.cos(orbitState.phi);
+  camera.position.z = orbitState.target.z + orbitState.radius * Math.sin(orbitState.phi) * Math.cos(orbitState.theta);
+  camera.lookAt(orbitState.target);
+}
+updateOrbit();
+
+canvas.addEventListener('mousedown', e => { orbitState.isDragging = true; orbitState.lastX = e.clientX; orbitState.lastY = e.clientY; });
+canvas.addEventListener('touchstart', e => { if (e.touches.length === 1) { orbitState.isDragging = true; orbitState.lastX = e.touches[0].clientX; orbitState.lastY = e.touches[0].clientY; } }, { passive: true });
+document.addEventListener('mouseup', () => { orbitState.isDragging = false; });
+document.addEventListener('touchend', () => { orbitState.isDragging = false; });
+document.addEventListener('mousemove', e => {
+  if (!orbitState.isDragging) return;
+  const dx = e.clientX - orbitState.lastX, dy = e.clientY - orbitState.lastY;
+  orbitState.theta -= dx * 0.008;
+  orbitState.phi = Math.max(0.05, Math.min(Math.PI - 0.05, orbitState.phi + dy * 0.008));
+  orbitState.lastX = e.clientX; orbitState.lastY = e.clientY;
+  updateOrbit();
+});
+document.addEventListener('touchmove', e => {
+  if (!orbitState.isDragging || e.touches.length !== 1) return;
+  const dx = e.touches[0].clientX - orbitState.lastX, dy = e.touches[0].clientY - orbitState.lastY;
+  orbitState.theta -= dx * 0.008;
+  orbitState.phi = Math.max(0.05, Math.min(Math.PI - 0.05, orbitState.phi + dy * 0.008));
+  orbitState.lastX = e.touches[0].clientX; orbitState.lastY = e.touches[0].clientY;
+  updateOrbit();
+}, { passive: true });
+canvas.addEventListener('wheel', e => {
+  orbitState.radius = Math.max(2, Math.min(50, orbitState.radius + e.deltaY * 0.01));
+  updateOrbit(); e.preventDefault();
+}, { passive: false });
+
+// ── RESIZE ───────────────────────────────────────────────
+function resizeRenderer() {
+  const zone = document.getElementById('canvas-zone');
+  const w = zone.offsetWidth, h = zone.offsetHeight;
+  renderer.setSize(w, h);
+  camera.aspect = w / h;
+  camera.updateProjectionMatrix();
+}
+window.addEventListener('resize', resizeRenderer);
+resizeRenderer();
+
+// ── ANIMATION LOOP ───────────────────────────────────────
+function animate() {
+  requestAnimationFrame(animate);
+  const delta = clock.getDelta();
+
+  // FPS counter
+  frameCount++;
+  fpsTime += delta;
+  if (fpsTime >= 0.5) {
+    fps = Math.round(frameCount / fpsTime);
+    frameCount = 0; fpsTime = 0;
+    document.getElementById('sb-fps').textContent = `${fps} fps`;
+  }
+
+  // Animate scene objects
+  if (animating) {
+    objectGroup.rotation.y += delta * 0.3;
+    animMixers.forEach(m => m.update(delta));
+  }
+
+  // Camera HUD
+  document.getElementById('cam-x').textContent = camera.position.x.toFixed(2);
+  document.getElementById('cam-y').textContent = camera.position.y.toFixed(2);
+  document.getElementById('cam-z').textContent = camera.position.z.toFixed(2);
+
+  renderer.render(scene, camera);
+}
+animate();
+
+// ── CAMERA PRESETS ───────────────────────────────────────
+function setCameraPreset(mode) {
+  if (mode === 'front') { orbitState.theta = 0; orbitState.phi = Math.PI/2; }
+  else if (mode === 'top') { orbitState.phi = 0.05; orbitState.theta = 0; }
+  else if (mode === 'side') { orbitState.theta = Math.PI/2; orbitState.phi = Math.PI/2; }
+  else if (mode === 'perspective') { orbitState.theta = 0.6; orbitState.phi = 0.9; }
+  updateOrbit();
+}
+function resetCamera() { orbitState.radius = 10; orbitState.theta = 0.6; orbitState.phi = 0.6; orbitState.target.set(0,0,0); updateOrbit(); }
+
+// ── SCENE CONTROLS ───────────────────────────────────────
+function toggleWireframe() {
+  wireframeMode = !wireframeMode;
+  objectGroup.traverse(obj => {
+    if (obj.isMesh && obj.material) {
+      if (Array.isArray(obj.material)) obj.material.forEach(m => m.wireframe = wireframeMode);
+      else obj.material.wireframe = wireframeMode;
+    }
+  });
+  document.getElementById('chip-wireframe').classList.toggle('active', wireframeMode);
+  toast(wireframeMode ? 'Wireframe on' : 'Wireframe off');
+}
+function toggleGrid() { gridHelper.visible = !gridHelper.visible; document.getElementById('chip-grid').classList.toggle('active', gridHelper.visible); }
+function toggleAxes() { axesHelper.visible = !axesHelper.visible; document.getElementById('chip-axes').classList.toggle('active', axesHelper.visible); }
+function toggleAnimation() {
+  animating = !animating;
+  document.getElementById('chip-anim').textContent = animating ? '▶ Animate' : '⏸ Paused';
+  document.getElementById('chip-anim').classList.toggle('active', animating);
+}
+function setViewMode(m) {}
+
+function clearScene() {
+  while (objectGroup.children.length > 0) objectGroup.remove(objectGroup.children[0]);
+  sceneObjects = []; animMixers = [];
+  document.getElementById('scene-name').textContent = 'Empty Scene';
+  document.getElementById('sb-scene').textContent = 'empty scene';
+  document.getElementById('sb-objects').textContent = '0 objects';
+  document.getElementById('poly-count').style.display = 'none';
+  toast('Scene cleared');
+}
+
+function updateObjectCount() {
+  let count = 0, verts = 0;
+  objectGroup.traverse(o => { if (o.isMesh) { count++; if (o.geometry) verts += (o.geometry.attributes.position?.count || 0); } });
+  document.getElementById('sb-objects').textContent = `${count} objects`;
+  document.getElementById('poly-count').style.display = count > 0 ? 'flex' : 'none';
+  document.getElementById('poly-count').textContent = `${verts.toLocaleString()} vertices`;
+}
+
+// ── PRESET SCENES ────────────────────────────────────────
+const PRESETS = {
+  magnetic: buildMagneticField,
+  solar: buildSolarSystem,
+  crystal: buildCrystalLattice,
+  wave: buildWaveFunction,
+  dna: buildDNAHelix,
+  torus: buildTorusKnot,
+};
+
+function loadPreset(name) {
+  clearScene();
+  objectGroup.rotation.y = 0;
+  if (PRESETS[name]) {
+    PRESETS[name]();
+    const label = name.charAt(0).toUpperCase() + name.slice(1);
+    document.getElementById('scene-name').textContent = label;
+    document.getElementById('sb-scene').textContent = name;
+    updateObjectCount();
+    showRenderTag('LOADED');
+    document.querySelectorAll('.scene-card').forEach((c, i) => {
+      const names = ['magnetic','solar','crystal','wave','dna','torus'];
+      c.classList.toggle('active', names[i] === name);
+    });
+    toast(`☄️ ${label} loaded`, true);
+  }
+}
+
+function buildMagneticField() {
+  const dipole = new THREE.Group();
+  // North-South poles
+  const poleGeo = new THREE.SphereGeometry(0.18, 16, 16);
+  const northMat = new THREE.MeshStandardMaterial({ color: 0xff4466, emissive: 0x880022, emissiveIntensity: 0.5 });
+  const southMat = new THREE.MeshStandardMaterial({ color: 0x4488ff, emissive: 0x002288, emissiveIntensity: 0.5 });
+  const north = new THREE.Mesh(poleGeo, northMat); north.position.y = 1.1;
+  const south = new THREE.Mesh(poleGeo, southMat); south.position.y = -1.1;
+  dipole.add(north, south);
+  // Core cylinder
+  const coreGeo = new THREE.CylinderGeometry(0.08, 0.08, 2.2, 12);
+  const coreMat = new THREE.MeshStandardMaterial({ color: 0xaaaaaa, metalness: 0.8, roughness: 0.2 });
+  dipole.add(new THREE.Mesh(coreGeo, coreMat));
+
+  // Field lines (tubes approximated by lines)
+  const fieldLineMat = new THREE.LineBasicMaterial({ color: 0x8888ff, transparent: true, opacity: 0.35 });
+  for (let loop = 0; loop < 8; loop++) {
+    const angle = (loop / 8) * Math.PI * 2;
+    const points = [];
+    for (let t = 0; t <= 60; t++) {
+      const theta = (t / 60) * Math.PI;
+      const r = 1.8 * Math.sin(theta) * Math.sin(theta);
+      const phi = angle;
+      points.push(new THREE.Vector3(r * Math.cos(phi), r * 2.4 * Math.cos(theta), r * Math.sin(phi)));
+    }
+    const geo = new THREE.BufferGeometry().setFromPoints(points);
+    dipole.add(new THREE.Line(geo, fieldLineMat));
+  }
+  objectGroup.add(dipole);
+}
+
+function buildSolarSystem() {
+  // Sun
+  const sunGeo = new THREE.SphereGeometry(0.7, 32, 32);
+  const sunMat = new THREE.MeshStandardMaterial({ color: 0xffcc44, emissive: 0xff8800, emissiveIntensity: 0.8 });
+  objectGroup.add(new THREE.Mesh(sunGeo, sunMat));
+  // Sun glow (point light)
+  const sunLight = new THREE.PointLight(0xffaa22, 2, 30); objectGroup.add(sunLight);
+
+  const planets = [
+    { name:'Mercury', r:0.12, orbit:1.3, speed:2.1, color:0xaa8866 },
+    { name:'Venus',   r:0.22, orbit:2.0, speed:1.3, color:0xffcc88 },
+    { name:'Earth',   r:0.23, orbit:2.8, speed:1.0, color:0x2266cc },
+    { name:'Mars',    r:0.16, orbit:3.6, speed:0.7, color:0xcc4422 },
+    { name:'Jupiter', r:0.45, orbit:5.2, speed:0.35, color:0xddbb88 },
+  ];
+  planets.forEach((p, i) => {
+    // Orbit ring
+    const orbitGeo = new THREE.RingGeometry(p.orbit - 0.01, p.orbit + 0.01, 64);
+    const orbitMat = new THREE.MeshBasicMaterial({ color: 0x223355, side: THREE.DoubleSide, transparent: true, opacity: 0.4 });
+    const orbitRing = new THREE.Mesh(orbitGeo, orbitMat);
+    orbitRing.rotation.x = Math.PI / 2;
+    objectGroup.add(orbitRing);
+    // Planet
+    const pGeo = new THREE.SphereGeometry(p.r, 20, 20);
+    const pMat = new THREE.MeshStandardMaterial({ color: p.color, roughness: 0.7 });
+    const planet = new THREE.Mesh(pGeo, pMat);
+    const startAngle = i * 1.2;
+    planet.position.x = Math.cos(startAngle) * p.orbit;
+    planet.position.z = Math.sin(startAngle) * p.orbit;
+    // Store orbit params
+    planet.userData = { orbit: p.orbit, speed: p.speed, angle: startAngle };
+    objectGroup.add(planet);
+    sceneObjects.push({ mesh: planet, type: 'orbit' });
+  });
+}
+
+function buildCrystalLattice() {
+  const atomMat = new THREE.MeshStandardMaterial({ color: 0x88ccff, emissive: 0x1144aa, emissiveIntensity: 0.4, metalness: 0.1, roughness: 0.4 });
+  const bondMat = new THREE.MeshStandardMaterial({ color: 0x445566, transparent: true, opacity: 0.5 });
+  const atomGeo = new THREE.SphereGeometry(0.12, 12, 12);
+  const positions = [];
+  for (let x = -2; x <= 2; x++) for (let y = -2; y <= 2; y++) for (let z = -2; z <= 2; z++) {
+    const atom = new THREE.Mesh(atomGeo, atomMat);
+    atom.position.set(x * 0.8, y * 0.8, z * 0.8);
+    objectGroup.add(atom);
+    positions.push(atom.position.clone());
+    // Bond lines to neighbors
+    [[1,0,0],[0,1,0],[0,0,1]].forEach(([dx,dy,dz]) => {
+      if (x+dx<=2 && y+dy<=2 && z+dz<=2) {
+        const bondGeo = new THREE.CylinderGeometry(0.025, 0.025, 0.8, 6);
+        const bond = new THREE.Mesh(bondGeo, bondMat);
+        bond.position.set((x+dx/2)*0.8, (y+dy/2)*0.8, (z+dz/2)*0.8);
+        if (dx) bond.rotation.z = Math.PI/2;
+        if (dz) bond.rotation.x = Math.PI/2;
+        objectGroup.add(bond);
+      }
+    });
+  }
+}
+
+function buildWaveFunction() {
+  const mat = new THREE.MeshStandardMaterial({ color: 0x44ffcc, emissive: 0x004433, emissiveIntensity: 0.3, wireframe: false, transparent: true, opacity: 0.8 });
+  const geo = new THREE.PlaneGeometry(10, 4, 100, 40);
+  const wave = new THREE.Mesh(geo, mat);
+  wave.rotation.x = -Math.PI / 4;
+  wave.userData = { type: 'wave', t: 0 };
+  objectGroup.add(wave);
+  sceneObjects.push({ mesh: wave, type: 'wave', geo });
+
+  // Animate via position updates
+  wave.onBeforeRender = () => {
+    if (!animating) return;
+    wave.userData.t += 0.02;
+    const pos = geo.attributes.position;
+    for (let i = 0; i < pos.count; i++) {
+      const x = pos.getX(i), y = pos.getY(i);
+      const z = Math.sin(x * 1.2 + wave.userData.t) * Math.exp(-x*x*0.04) * Math.cos(y * 0.8 + wave.userData.t * 0.5);
+      pos.setZ(i, z * 0.8);
+    }
+    pos.needsUpdate = true;
+    geo.computeVertexNormals();
+  };
+
+  // Probability cloud particles
+  const partGeo = new THREE.BufferGeometry();
+  const partCount = 500;
+  const partPos = new Float32Array(partCount * 3);
+  for (let i = 0; i < partCount; i++) {
+    partPos[i*3] = (Math.random() - 0.5) * 8;
+    partPos[i*3+1] = (Math.random() - 0.5) * 2;
+    partPos[i*3+2] = (Math.random() - 0.5) * 2;
+  }
+  partGeo.setAttribute('position', new THREE.BufferAttribute(partPos, 3));
+  const partMat = new THREE.PointsMaterial({ color: 0x88ffdd, size: 0.04, transparent: true, opacity: 0.6 });
+  objectGroup.add(new THREE.Points(partGeo, partMat));
+}
+
+function buildDNAHelix() {
+  const strand1Mat = new THREE.MeshStandardMaterial({ color: 0xff6688, emissive: 0x880033, emissiveIntensity: 0.3 });
+  const strand2Mat = new THREE.MeshStandardMaterial({ color: 0x4488ff, emissive: 0x002288, emissiveIntensity: 0.3 });
+  const baseMat = new THREE.MeshStandardMaterial({ color: 0x88ff88, emissive: 0x004400, emissiveIntensity: 0.2, transparent: true, opacity: 0.7 });
+  const atomGeo = new THREE.SphereGeometry(0.08, 10, 10);
+  const bondGeo = new THREE.CylinderGeometry(0.025, 0.025, 1, 6);
+
+  const steps = 40;
+  for (let i = 0; i < steps; i++) {
+    const t = (i / steps) * Math.PI * 6 - Math.PI * 3;
+    const y = (i / steps) * 6 - 3;
+    const r = 1.1;
+
+    const a1 = new THREE.Mesh(atomGeo, strand1Mat);
+    a1.position.set(Math.cos(t) * r, y, Math.sin(t) * r);
+    objectGroup.add(a1);
+
+    const a2 = new THREE.Mesh(atomGeo, strand2Mat);
+    a2.position.set(Math.cos(t + Math.PI) * r, y, Math.sin(t + Math.PI) * r);
+    objectGroup.add(a2);
+
+    // Base pair rung
+    if (i % 3 === 0) {
+      const rungPoints = [a1.position.clone(), a2.position.clone()];
+      const rungGeo = new THREE.BufferGeometry().setFromPoints(rungPoints);
+      objectGroup.add(new THREE.Line(rungGeo, new THREE.LineBasicMaterial({ color: 0x88ff88, transparent: true, opacity: 0.4 })));
+    }
+  }
+}
+
+function buildTorusKnot() {
+  const geo = new THREE.TorusKnotGeometry(1.5, 0.35, 200, 20, 2, 3);
+  const mat = new THREE.MeshStandardMaterial({
+    color: 0xaa44ff,
+    emissive: 0x220044,
+    emissiveIntensity: 0.4,
+    metalness: 0.4,
+    roughness: 0.3,
+  });
+  const knot = new THREE.Mesh(geo, mat);
+  objectGroup.add(knot);
+
+  // Orbit particles
+  const partCount = 3000;
+  const pGeo = new THREE.BufferGeometry();
+  const positions = new Float32Array(partCount * 3);
+  for (let i = 0; i < partCount; i++) {
+    const theta = (i / partCount) * Math.PI * 2 * 2;
+    const phi = theta * 3;
+    const r = 1.5 + 0.35 * Math.cos(phi);
+    positions[i*3] = r * Math.cos(theta) + (Math.random()-.5)*.3;
+    positions[i*3+1] = r * Math.sin(theta) + (Math.random()-.5)*.3;
+    positions[i*3+2] = 0.35 * Math.sin(phi) + (Math.random()-.5)*.3;
+  }
+  pGeo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+  const pMat = new THREE.PointsMaterial({ color: 0xcc88ff, size: 0.025, transparent: true, opacity: 0.5 });
+  objectGroup.add(new THREE.Points(pGeo, pMat));
+}
+
+// Custom scene code execution
+function executeSceneCode(code) {
+  try {
+    clearScene();
+    objectGroup.rotation.y = 0;
+    // Provide Three + objectGroup to injected code
+    const fn = new Function('THREE', 'objectGroup', 'scene', code);
+    fn(THREE, objectGroup, scene);
+    updateObjectCount();
+    showRenderTag('RENDERED');
+    toast('⬡ Scene rendered!', true);
+    document.getElementById('scene-name').textContent = 'Custom Scene';
+    document.getElementById('sb-scene').textContent = 'custom';
+  } catch (err) {
+    toast(`⚠️ Error: ${err.message}`);
+    addMsg('b', `**Error rendering scene:**\n\`${err.message}\`\n\nCheck that the Three.js code uses \`objectGroup\` to add objects (not \`scene\` directly for main objects).`);
+  }
+}
+
+function showRenderTag(text) {
+  const tag = document.getElementById('render-tag');
+  tag.textContent = `⬡ ${text}`;
+  tag.classList.add('show');
+  tag.classList.add('rendering');
+  setTimeout(() => { tag.classList.remove('rendering'); setTimeout(() => tag.classList.remove('show'), 2000); }, 800);
+}
+
+// ── API ───────────────────────────────────────────────────
+async function checkAPI() {
+  try {
+    const r = await fetch(`${API}/`, { signal: AbortSignal.timeout(3000) });
+    if (r.ok) {
+      apiOnline = true;
+      document.getElementById('api-dot').className = 'api-dot on';
+      document.getElementById('api-lbl').textContent = 'API online';
+      document.getElementById('sb-api').textContent = 'online';
+    }
+  } catch {
+    document.getElementById('api-dot').className = 'api-dot off';
+    document.getElementById('api-lbl').textContent = 'API offline';
+    document.getElementById('sb-api').textContent = 'offline';
+  }
+}
+checkAPI(); setInterval(checkAPI, 10000);
+
+// ── BLITZ CHAT ────────────────────────────────────────────
+const STUDIO_SYSTEM = `You are B.L.I.T.Z. in 3D STUDIO mode. The user wants to generate 3D scenes using Three.js (r128).
+When asked to create a 3D scene or object, respond with a JavaScript code block that:
+1. Uses the provided \`objectGroup\` (a THREE.Group) to add objects — do NOT reference \`scene\` for main geometry
+2. Uses \`THREE\` for all Three.js classes (already loaded as r128)
+3. Creates visually impressive geometry with proper materials and lighting
+4. Be concise — a few dozen lines max
+5. Always add at least some emissive glow or interesting materials
+
+Example response format:
+\`\`\`javascript
+// Rotating cube
+const geo = new THREE.BoxGeometry(1,1,1);
+const mat = new THREE.MeshStandardMaterial({ color: 0x8844ff, emissive: 0x220033 });
+objectGroup.add(new THREE.Mesh(geo, mat));
+\`\`\`
+
+After the code, briefly describe what the scene shows.`;
+
+async function sendStudio() {
+  const inp = document.getElementById('b-inp');
+  const text = inp.value.trim();
+  if (!text) return;
+  inp.value = '';
+  addMsg('u', text);
+  showTyping();
+
+  let response = '';
+  try {
+    const r = await fetch(`${API}/api/command`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text, active_modules: ['vision'], system_override: STUDIO_SYSTEM }),
+      signal: AbortSignal.timeout(20000)
+    });
+    const d = await r.json();
+    response = d.response;
+  } catch {
+    response = simulateStudio(text);
+  }
+  hideTyping();
+
+  const codeMatch = response.match(/```(?:javascript|js)?\n([\s\S]+?)```/);
+  if (codeMatch) {
+    lastSceneCode = codeMatch[1].trim();
+    addMsg('b', response, lastSceneCode);
+    // Auto-execute!
+    setTimeout(() => executeSceneCode(lastSceneCode), 300);
+  } else {
+    addMsg('b', response, null);
+  }
+}
+
+function quickPrompt(text) {
+  document.getElementById('b-inp').value = text;
+  sendStudio();
+}
+
+function renderFromChat() {
+  if (lastSceneCode) executeSceneCode(lastSceneCode);
+  else toast('No scene code yet — ask B.L.I.T.Z. to generate one');
+}
+
+function simulateStudio(prompt) {
+  const p = prompt.toLowerCase();
+  if (p.includes('magnetic') || p.includes('field')) {
+    return `Here's a magnetic dipole field:\n\n\`\`\`javascript\n// Magnetic field visualization\nconst poleGeo = new THREE.SphereGeometry(0.2, 16, 16);\nconst nMat = new THREE.MeshStandardMaterial({ color: 0xff4466, emissive: 0x880022, emissiveIntensity:0.6 });\nconst sMat = new THREE.MeshStandardMaterial({ color: 0x4488ff, emissive: 0x002288, emissiveIntensity:0.6 });\nconst north = new THREE.Mesh(poleGeo, nMat); north.position.y = 1.2;\nconst south = new THREE.Mesh(poleGeo, sMat); south.position.y = -1.2;\nobjectGroup.add(north, south);\nconst lineMat = new THREE.LineBasicMaterial({ color: 0x8888ff, transparent:true, opacity:0.4 });\nfor (let i=0; i<12; i++) {\n  const a = (i/12)*Math.PI*2;\n  const pts = [];\n  for (let t=0; t<=60; t++) {\n    const th = (t/60)*Math.PI;\n    const r = 2*Math.sin(th)*Math.sin(th);\n    pts.push(new THREE.Vector3(r*Math.cos(a), r*2.5*Math.cos(th), r*Math.sin(a)));\n  }\n  objectGroup.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts), lineMat));\n}\n\`\`\`\n\nThis shows a magnetic dipole with N/S poles (red/blue) and surrounding field lines.`;
+  }
+  if (p.includes('dna') || p.includes('helix')) {
+    return `Backend offline — but here's a DNA helix:\n\n\`\`\`javascript\nconst m1 = new THREE.MeshStandardMaterial({color:0xff6688,emissive:0x880033,emissiveIntensity:.4});\nconst m2 = new THREE.MeshStandardMaterial({color:0x4488ff,emissive:0x002288,emissiveIntensity:.4});\nconst geo = new THREE.SphereGeometry(.09,10,10);\nfor(let i=0;i<50;i++){\n  const t=(i/50)*Math.PI*8-Math.PI*4;\n  const y=(i/50)*7-3.5;\n  const a1=new THREE.Mesh(geo,m1); a1.position.set(Math.cos(t)*1.2,y,Math.sin(t)*1.2);\n  const a2=new THREE.Mesh(geo,m2); a2.position.set(Math.cos(t+Math.PI)*1.2,y,Math.sin(t+Math.PI)*1.2);\n  objectGroup.add(a1,a2);\n  if(i%4===0){\n    const pts=[a1.position.clone(),a2.position.clone()];\n    objectGroup.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts), new THREE.LineBasicMaterial({color:0x88ff88,transparent:true,opacity:.5})));\n  }\n}\n\`\`\`\n\nDNA double helix with base pairs. Connect backend for AI-generated scenes.`;
+  }
+  return `I'll generate a glowing geometric scene:\n\n\`\`\`javascript\nconst knot = new THREE.Mesh(\n  new THREE.TorusKnotGeometry(1.4,.3,180,20,2,3),\n  new THREE.MeshStandardMaterial({color:0xaa44ff,emissive:0x220044,emissiveIntensity:.5,metalness:.3,roughness:.3})\n);\nobjectGroup.add(knot);\nconst light = new THREE.PointLight(0x8844ff,2,10);\nlight.position.set(0,2,0);\nobjectGroup.add(light);\n\`\`\`\n\nA glowing torus knot. Start the backend for AI-generated custom scenes!`;
+}
+
+let chatHistory = [];
+
+function addMsg(role, text, code = null) {
+  const feed = document.getElementById('blitz-feed');
+  const t = new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});
+  const div = document.createElement('div');
+  div.className = `b-msg ${role}`;
+  const content = role === 'b' ? renderMD(text) : esc(text);
+  div.innerHTML = `<div class="b-who">${role === 'u' ? 'YOU' : 'BLITZ'}</div><div class="b-bubble">${content}</div><div class="b-ts">${t}</div>`;
+  if (code && role === 'b') {
+    const btn = document.createElement('button');
+    btn.className = 'inject-scene-btn show';
+    btn.textContent = '⬡ Re-render scene';
+    btn.onclick = () => executeSceneCode(code);
+    div.appendChild(btn);
+  }
+  feed.appendChild(div);
+  feed.scrollTop = feed.scrollHeight;
+}
+
+function showTyping() {
+  const feed = document.getElementById('blitz-feed');
+  const e = document.createElement('div');
+  e.className = 'b-typing'; e.id = 'b-typing';
+  e.innerHTML = '<div class="tdot"></div><div class="tdot"></div><div class="tdot"></div>';
+  feed.appendChild(e); feed.scrollTop = feed.scrollHeight;
+}
+function hideTyping() { document.getElementById('b-typing')?.remove(); }
+
+function renderMD(t) {
+  let s = t.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  s = s.replace(/```(\w*)\n?([\s\S]*?)```/g,(_,lang,code)=>`<pre>${code.trim()}</pre>`);
+  s = s.replace(/`([^`]+)`/g,'<code>$1</code>');
+  s = s.replace(/\*\*([^*]+)\*\*/g,'<strong>$1</strong>');
+  s = s.replace(/\*([^*]+)\*/g,'<em>$1</em>');
+  s = s.replace(/^#{1,3} (.+)$/gm,'<strong style="display:block;margin:5px 0 2px">$1</strong>');
+  s = s.replace(/\n/g,'<br>');
+  return s;
+}
+function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+function toast(msg, s=false){
+  const t=document.getElementById('toast');
+  t.textContent=msg; t.className='toast show'+(s?' studio':'');
+  clearTimeout(toastTimer); toastTimer=setTimeout(()=>t.classList.remove('show'),2200);
+}
+
+function toggleBlitz(){
+  document.getElementById('blitz-panel').classList.toggle('collapsed');
+}
+
+// Enter to send
+document.getElementById('b-inp').addEventListener('keydown', e => {
+  if (e.key === 'Enter') { e.preventDefault(); sendStudio(); }
+});
+
+// Boot message
+setTimeout(() => {
+  addMsg('b', '**B.L.I.T.Z. Studio** online.\n\nI can generate Three.js 3D scenes from natural language. Try the scene library on the right, or ask me anything:\n\n> "Generate a 3D magnetic field with field lines"\n> "Show me the DNA double helix structure"\n> "Build a particle wave function visualization"');
+}, 500);
+
+// Solar system orbit animation (custom per-frame)
+const originalAnimate = renderer.render.bind(renderer);
+let solarTime = 0;
+const oldAnimate = animate;
+function animateSolar(delta) {
+  if (!animating) return;
+  solarTime += delta;
+  objectGroup.children.forEach(obj => {
+    if (obj.userData && obj.userData.type === 'orbit') {
+      obj.userData.angle += obj.userData.speed * delta;
+      obj.position.x = Math.cos(obj.userData.angle) * obj.userData.orbit;
+      obj.position.z = Math.sin(obj.userData.angle) * obj.userData.orbit;
+    }
+  });
+}
+// Hook into clock delta
+const origDelta = clock.getDelta.bind(clock);
+</script>
+</body>
+</html>
